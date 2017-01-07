@@ -1,6 +1,6 @@
 {
   "name": "mimmi20/browscap-helper-source-browscap",
-  "description": "the browscap source for the browscap helper to load usergants and test from browscap",
+  "description": "the browscap source for the browscap helper to load useragents and tests",
   "require": {
     "php": "^5.6 || ^7.0 || ^7.1",
     "mimmi20/browscap-helper-source": "^1.0",
