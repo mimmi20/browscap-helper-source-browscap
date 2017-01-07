@@ -70,7 +70,7 @@ class BrowscapSource implements SourceInterface
                 if (!array_key_exists('ua', $row)) {
                     continue;
                 }
-                if (!array_key_exists($row['ua'], $allTests)) {
+                if (array_key_exists($row['ua'], $allTests)) {
                     continue;
                 }
 
