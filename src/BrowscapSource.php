@@ -74,7 +74,33 @@ class BrowscapSource implements SourceInterface
                     continue;
                 }
 
-                $allTests[$row['ua']] = $row;
+                $allTests[$row['ua']] = [
+                    'ua'         => $row['ua'],
+                    'properties' => [
+                        'Browser_Name'            => $row['properties']['Browser'],
+                        'Browser_Type'            => $row['properties']['Browser_Type'],
+                        'Browser_Bits'            => $row['properties']['Browser_Bits'],
+                        'Browser_Maker'           => $row['properties']['Browser_Maker'],
+                        'Browser_Modus'           => $row['properties']['Browser_Modus'],
+                        'Browser_Version'         => $row['properties']['Version'],
+                        'Platform_Codename'       => $row['properties']['Platform'],
+                        'Platform_Marketingname'  => null,
+                        'Platform_Version'        => $row['properties']['Platform_Version'],
+                        'Platform_Bits'           => $row['properties']['Platform_Bits'],
+                        'Platform_Maker'          => $row['properties']['Platform_Maker'],
+                        'Platform_Brand_Name'     => null,
+                        'Device_Name'             => $row['properties']['Device_Name'],
+                        'Device_Maker'            => $row['properties']['Device_Maker'],
+                        'Device_Type'             => $row['properties']['Device_Type'],
+                        'Device_Pointing_Method'  => $row['properties']['Device_Pointing_Method'],
+                        'Device_Dual_Orientation' => null,
+                        'Device_Code_Name'        => $row['properties']['Device_Code_Name'],
+                        'Device_Brand_Name'       => $row['properties']['Device_Brand_Name'],
+                        'RenderingEngine_Name'    => $row['properties']['RenderingEngine_Name'],
+                        'RenderingEngine_Version' => $row['properties']['RenderingEngine_Version'],
+                        'RenderingEngine_Maker'   => $row['properties']['RenderingEngine_Maker'],
+                    ],
+                ];
             }
         }
 
