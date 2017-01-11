@@ -21,37 +21,31 @@ class BrowscapSource implements SourceInterface
      */
     public function getUserAgents(Logger $logger, OutputInterface $output, $limit = 0)
     {
+        $counter   = 0;
         $allAgents = [];
 
         foreach ($this->loadFromPath($output) as $dataFile) {
-            if ($limit && count($allAgents) >= $limit) {
-                break;
+            if ($limit && $counter >= $limit) {
+                return;
             }
 
-            $agentsFromFile = [];
-
             foreach ($dataFile as $row) {
+                if ($limit && $counter >= $limit) {
+                    return;
+                }
+
                 if (!array_key_exists('ua', $row)) {
                     continue;
                 }
 
-                $agentsFromFile[] = $row['ua'];
+                if (array_key_exists($row['ua'], $allAgents)) {
+                    continue;
+                }
+
+                yield $row['ua'];
+                $allAgents[$row['ua']] = 1;
+                ++$counter;
             }
-
-            $output->writeln(' [added ' . str_pad(number_format(count($allAgents)), 12, ' ', STR_PAD_LEFT) . ' agent' . (count($allAgents) !== 1 ? 's' : '') . ' so far]');
-
-            $newAgents = array_diff($agentsFromFile, $allAgents);
-            $allAgents = array_merge($allAgents, $newAgents);
-        }
-
-        $i = 0;
-        foreach ($allAgents as $agent) {
-            if ($limit && $i >= $limit) {
-                return null;
-            }
-
-            ++$i;
-            yield $agent;
         }
     }
 
@@ -70,18 +64,42 @@ class BrowscapSource implements SourceInterface
                 if (!array_key_exists('ua', $row)) {
                     continue;
                 }
+
                 if (array_key_exists($row['ua'], $allTests)) {
                     continue;
                 }
 
-                $allTests[$row['ua']] = $row;
-            }
-        }
+                $test = [
+                    'ua'         => $row['ua'],
+                    'properties' => [
+                        'Browser_Name'            => $row['properties']['Browser'],
+                        'Browser_Type'            => $row['properties']['Browser_Type'],
+                        'Browser_Bits'            => $row['properties']['Browser_Bits'],
+                        'Browser_Maker'           => $row['properties']['Browser_Maker'],
+                        'Browser_Modus'           => $row['properties']['Browser_Modus'],
+                        'Browser_Version'         => $row['properties']['Version'],
+                        'Platform_Codename'       => $row['properties']['Platform'],
+                        'Platform_Marketingname'  => null,
+                        'Platform_Version'        => $row['properties']['Platform_Version'],
+                        'Platform_Bits'           => $row['properties']['Platform_Bits'],
+                        'Platform_Maker'          => $row['properties']['Platform_Maker'],
+                        'Platform_Brand_Name'     => null,
+                        'Device_Name'             => $row['properties']['Device_Name'],
+                        'Device_Maker'            => $row['properties']['Device_Maker'],
+                        'Device_Type'             => $row['properties']['Device_Type'],
+                        'Device_Pointing_Method'  => $row['properties']['Device_Pointing_Method'],
+                        'Device_Dual_Orientation' => null,
+                        'Device_Code_Name'        => $row['properties']['Device_Code_Name'],
+                        'Device_Brand_Name'       => $row['properties']['Device_Brand_Name'],
+                        'RenderingEngine_Name'    => $row['properties']['RenderingEngine_Name'],
+                        'RenderingEngine_Version' => $row['properties']['RenderingEngine_Version'],
+                        'RenderingEngine_Maker'   => $row['properties']['RenderingEngine_Maker'],
+                    ],
+                ];
 
-        $i = 0;
-        foreach ($allTests as $ua => $test) {
-            ++$i;
-            yield [$ua => $test];
+                yield [$row['ua'] => $test];
+                $allTests[$row['ua']] = 1;
+            }
         }
     }
 
