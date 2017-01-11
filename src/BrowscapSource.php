@@ -21,37 +21,31 @@ class BrowscapSource implements SourceInterface
      */
     public function getUserAgents(Logger $logger, OutputInterface $output, $limit = 0)
     {
+        $counter   = 0;
         $allAgents = [];
 
         foreach ($this->loadFromPath($output) as $dataFile) {
-            if ($limit && count($allAgents) >= $limit) {
-                break;
+            if ($limit && $counter >= $limit) {
+                return;
             }
 
-            $agentsFromFile = [];
-
             foreach ($dataFile as $row) {
+                if ($limit && $counter >= $limit) {
+                    return;
+                }
+
                 if (!array_key_exists('ua', $row)) {
                     continue;
                 }
 
-                $agentsFromFile[] = $row['ua'];
+                if (array_key_exists($row['ua'], $allAgents)) {
+                    continue;
+                }
+
+                yield $row['ua'];
+                $allAgents[$row['ua']] = 1;
+                ++$counter;
             }
-
-            $output->writeln(' [added ' . str_pad(number_format(count($allAgents)), 12, ' ', STR_PAD_LEFT) . ' agent' . (count($allAgents) !== 1 ? 's' : '') . ' so far]');
-
-            $newAgents = array_diff($agentsFromFile, $allAgents);
-            $allAgents = array_merge($allAgents, $newAgents);
-        }
-
-        $i = 0;
-        foreach ($allAgents as $agent) {
-            if ($limit && $i >= $limit) {
-                return null;
-            }
-
-            ++$i;
-            yield $agent;
         }
     }
 
@@ -70,11 +64,12 @@ class BrowscapSource implements SourceInterface
                 if (!array_key_exists('ua', $row)) {
                     continue;
                 }
+
                 if (array_key_exists($row['ua'], $allTests)) {
                     continue;
                 }
 
-                $allTests[$row['ua']] = [
+                $test = [
                     'ua'         => $row['ua'],
                     'properties' => [
                         'Browser_Name'            => $row['properties']['Browser'],
@@ -101,13 +96,10 @@ class BrowscapSource implements SourceInterface
                         'RenderingEngine_Maker'   => $row['properties']['RenderingEngine_Maker'],
                     ],
                 ];
-            }
-        }
 
-        $i = 0;
-        foreach ($allTests as $ua => $test) {
-            ++$i;
-            yield [$ua => $test];
+                yield [$row['ua'] => $test];
+                $allTests[$row['ua']] = 1;
+            }
         }
     }
 
