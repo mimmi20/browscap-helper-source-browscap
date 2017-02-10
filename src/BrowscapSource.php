@@ -2,8 +2,21 @@
 
 namespace BrowscapHelper\Source;
 
-use Monolog\Logger;
+use BrowserDetector\Loader\NotFoundException;
+use Psr\Cache\CacheItemPoolInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use UaDataMapper\BrowserTypeMapper;
+use UaDataMapper\BrowserVersionMapper;
+use UaDataMapper\DeviceTypeMapper;
+use UaDataMapper\EngineVersionMapper;
+use UaResult\Browser\Browser;
+use UaResult\Company\CompanyLoader;
+use UaResult\Device\Device;
+use UaResult\Engine\Engine;
+use UaResult\Os\Os;
+use UaResult\Result\Result;
+use Wurfl\Request\GenericRequestFactory;
 
 /**
  * Class DirectorySource
@@ -13,18 +26,43 @@ use Symfony\Component\Console\Output\OutputInterface;
 class BrowscapSource implements SourceInterface
 {
     /**
-     * @param \Monolog\Logger                                   $logger
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
-     * @param int                                               $limit
-     *
-     * @return \Generator
+     * @var \Symfony\Component\Console\Output\OutputInterface
      */
-    public function getUserAgents(Logger $logger, OutputInterface $output, $limit = 0)
+    private $output = null;
+
+    /**
+     * @var null
+     */
+    private $logger = null;
+
+    /**
+     * @var \Psr\Cache\CacheItemPoolInterface|null
+     */
+    private $cache = null;
+
+    /**
+     * @param \Psr\Log\LoggerInterface                          $logger
+     * @param \Symfony\Component\Console\Output\OutputInterface $output
+     * @param \Psr\Cache\CacheItemPoolInterface                 $cache
+     */
+    public function __construct(LoggerInterface $logger, OutputInterface $output, CacheItemPoolInterface $cache)
+    {
+        $this->logger = $logger;
+        $this->output = $output;
+        $this->cache  = $cache;
+    }
+
+    /**
+     * @param int $limit
+     *
+     * @return string[]
+     */
+    public function getUserAgents($limit = 0)
     {
         $counter   = 0;
         $allAgents = [];
 
-        foreach ($this->loadFromPath($output) as $dataFile) {
+        foreach ($this->loadFromPath() as $dataFile) {
             if ($limit && $counter >= $limit) {
                 return;
             }
@@ -50,16 +88,13 @@ class BrowscapSource implements SourceInterface
     }
 
     /**
-     * @param \Monolog\Logger                                   $logger
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
-     *
-     * @return \Generator
+     * @return \UaResult\Result\Result[]
      */
-    public function getTests(Logger $logger, OutputInterface $output)
+    public function getTests()
     {
         $allTests = [];
 
-        foreach ($this->loadFromPath($output) as $dataFile) {
+        foreach ($this->loadFromPath() as $dataFile) {
             foreach ($dataFile as $row) {
                 if (!array_key_exists('ua', $row)) {
                     continue;
@@ -69,46 +104,99 @@ class BrowscapSource implements SourceInterface
                     continue;
                 }
 
-                $test = [
-                    'ua'         => $row['ua'],
-                    'properties' => [
-                        'Browser_Name'            => $row['properties']['Browser'],
-                        'Browser_Type'            => $row['properties']['Browser_Type'],
-                        'Browser_Bits'            => $row['properties']['Browser_Bits'],
-                        'Browser_Maker'           => $row['properties']['Browser_Maker'],
-                        'Browser_Modus'           => $row['properties']['Browser_Modus'],
-                        'Browser_Version'         => $row['properties']['Version'],
-                        'Platform_Codename'       => $row['properties']['Platform'],
-                        'Platform_Marketingname'  => null,
-                        'Platform_Version'        => $row['properties']['Platform_Version'],
-                        'Platform_Bits'           => $row['properties']['Platform_Bits'],
-                        'Platform_Maker'          => $row['properties']['Platform_Maker'],
-                        'Platform_Brand_Name'     => null,
-                        'Device_Name'             => $row['properties']['Device_Name'],
-                        'Device_Maker'            => $row['properties']['Device_Maker'],
-                        'Device_Type'             => $row['properties']['Device_Type'],
-                        'Device_Pointing_Method'  => $row['properties']['Device_Pointing_Method'],
-                        'Device_Dual_Orientation' => null,
-                        'Device_Code_Name'        => $row['properties']['Device_Code_Name'],
-                        'Device_Brand_Name'       => $row['properties']['Device_Brand_Name'],
-                        'RenderingEngine_Name'    => $row['properties']['RenderingEngine_Name'],
-                        'RenderingEngine_Version' => $row['properties']['RenderingEngine_Version'],
-                        'RenderingEngine_Maker'   => $row['properties']['RenderingEngine_Maker'],
-                    ],
-                ];
+                $request = (new GenericRequestFactory())->createRequestForUserAgent($row['ua']);
 
-                yield [$row['ua'] => $test];
+                try {
+                    $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $browserType = null;
+                }
+
+                try {
+                    $browserMaker = (new CompanyLoader($this->cache))->load($row['properties']['Browser_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $browserMaker = null;
+                }
+
+                $browser = new Browser(
+                    $row['properties']['Browser'],
+                    $browserMaker,
+                    (new BrowserVersionMapper())->mapBrowserVersion($row['properties']['Version'], $row['properties']['Browser']),
+                    $browserType,
+                    $row['properties']['Browser_Bits'],
+                    false,
+                    false,
+                    $row['properties']['Browser_Modus']
+                );
+
+                try {
+                    $deviceMaker = (new CompanyLoader($this->cache))->load($row['properties']['Device_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $deviceMaker = null;
+                }
+
+                try {
+                    $deviceBrand = (new CompanyLoader($this->cache))->load($row['properties']['Device_Brand_Name']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $deviceBrand = null;
+                }
+
+                try {
+                    $deviceType = (new DeviceTypeMapper())->mapDeviceType($this->cache, $row['properties']['Device_Type']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $deviceType = null;
+                }
+
+                $device = new Device(
+                    $row['properties']['Device_Code_Name'],
+                    $row['properties']['Device_Name'],
+                    $deviceMaker,
+                    $deviceBrand,
+                    $deviceType,
+                    $row['properties']['Device_Pointing_Method']
+                );
+
+                try {
+                    $platformMaker = (new CompanyLoader($this->cache))->load($row['properties']['Platform_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $platformMaker = null;
+                }
+
+                $platform = new Os(
+                    $row['properties']['Platform'],
+                    null,
+                    $platformMaker
+                );
+
+                try {
+                    $engineMaker = (new CompanyLoader($this->cache))->load($row['properties']['RenderingEngine_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $engineMaker = null;
+                }
+
+                $engine = new Engine(
+                    $row['properties']['RenderingEngine_Name'],
+                    $engineMaker,
+                    (new EngineVersionMapper())->mapEngineVersion($row['properties']['RenderingEngine_Version'])
+                );
+
+                yield $row['ua'] => new Result($request, $device, $platform, $browser, $engine);
                 $allTests[$row['ua']] = 1;
             }
         }
     }
 
     /**
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
-     *
-     * @return \Generator
+     * @return array
      */
-    private function loadFromPath(OutputInterface $output = null)
+    private function loadFromPath()
     {
         $path = 'vendor/browscap/browscap/tests/fixtures/issues';
 
@@ -116,7 +204,7 @@ class BrowscapSource implements SourceInterface
             return;
         }
 
-        $output->writeln('    reading path ' . $path);
+        $this->output->writeln('    reading path ' . $path);
 
         $iterator = new \RecursiveDirectoryIterator($path);
 
@@ -128,7 +216,7 @@ class BrowscapSource implements SourceInterface
 
             $filepath = $file->getPathname();
 
-            $output->write('    reading file ' . str_pad($filepath, 100, ' ', STR_PAD_RIGHT), false);
+            $this->output->writeln('    reading file ' . str_pad($filepath, 100, ' ', STR_PAD_RIGHT), false);
             switch ($file->getExtension()) {
                 case 'php':
                     yield include $filepath;
