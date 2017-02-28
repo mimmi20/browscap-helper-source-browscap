@@ -123,7 +123,7 @@ class BrowscapSource implements SourceInterface
                 }
 
                 try {
-                    $browserMaker = (new CompanyLoader($this->cache))->load($row['properties']['Browser_Maker']);
+                    $browserMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Browser_Maker']);
                 } catch (NotFoundException $e) {
                     $this->logger->critical($e);
                     $browserMaker = null;
@@ -141,14 +141,14 @@ class BrowscapSource implements SourceInterface
                 );
 
                 try {
-                    $deviceMaker = (new CompanyLoader($this->cache))->load($row['properties']['Device_Maker']);
+                    $deviceMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Device_Maker']);
                 } catch (NotFoundException $e) {
                     $this->logger->critical($e);
                     $deviceMaker = null;
                 }
 
                 try {
-                    $deviceBrand = (new CompanyLoader($this->cache))->load($row['properties']['Device_Brand_Name']);
+                    $deviceBrand = (new CompanyLoader($this->cache))->loadByBrandName($row['properties']['Device_Brand_Name']);
                 } catch (NotFoundException $e) {
                     $this->logger->critical($e);
                     $deviceBrand = null;
@@ -171,7 +171,7 @@ class BrowscapSource implements SourceInterface
                 );
 
                 try {
-                    $platformMaker = (new CompanyLoader($this->cache))->load($row['properties']['Platform_Maker']);
+                    $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
                 } catch (NotFoundException $e) {
                     $this->logger->critical($e);
                     $platformMaker = null;
@@ -184,7 +184,7 @@ class BrowscapSource implements SourceInterface
                 );
 
                 try {
-                    $engineMaker = (new CompanyLoader($this->cache))->load($row['properties']['RenderingEngine_Maker']);
+                    $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
                 } catch (NotFoundException $e) {
                     $this->logger->critical($e);
                     $engineMaker = null;
