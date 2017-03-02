@@ -14,7 +14,7 @@ namespace BrowscapHelper\Source;
 use BrowserDetector\Loader\NotFoundException;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Finder\Finder;
 use UaDataMapper\BrowserTypeMapper;
 use UaDataMapper\BrowserVersionMapper;
 use UaDataMapper\DeviceTypeMapper;
@@ -35,11 +35,6 @@ use Wurfl\Request\GenericRequestFactory;
 class BrowscapSource implements SourceInterface
 {
     /**
-     * @var \Symfony\Component\Console\Output\OutputInterface
-     */
-    private $output = null;
-
-    /**
      * @var null
      */
     private $logger = null;
@@ -50,14 +45,12 @@ class BrowscapSource implements SourceInterface
     private $cache = null;
 
     /**
-     * @param \Psr\Log\LoggerInterface                          $logger
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
-     * @param \Psr\Cache\CacheItemPoolInterface                 $cache
+     * @param \Psr\Log\LoggerInterface          $logger
+     * @param \Psr\Cache\CacheItemPoolInterface $cache
      */
-    public function __construct(LoggerInterface $logger, OutputInterface $output, CacheItemPoolInterface $cache)
+    public function __construct(LoggerInterface $logger, CacheItemPoolInterface $cache)
     {
         $this->logger = $logger;
-        $this->output = $output;
         $this->cache  = $cache;
     }
 
@@ -68,31 +61,15 @@ class BrowscapSource implements SourceInterface
      */
     public function getUserAgents($limit = 0)
     {
-        $counter   = 0;
-        $allAgents = [];
+        $counter = 0;
 
-        foreach ($this->loadFromPath() as $dataFile) {
+        foreach ($this->loadFromPath() as $row) {
             if ($limit && $counter >= $limit) {
                 return;
             }
 
-            foreach ($dataFile as $row) {
-                if ($limit && $counter >= $limit) {
-                    return;
-                }
-
-                if (!array_key_exists('ua', $row)) {
-                    continue;
-                }
-
-                if (array_key_exists($row['ua'], $allAgents)) {
-                    continue;
-                }
-
-                yield $row['ua'];
-                $allAgents[$row['ua']] = 1;
-                ++$counter;
-            }
+            yield $row['ua'];
+            ++$counter;
         }
     }
 
@@ -101,109 +78,96 @@ class BrowscapSource implements SourceInterface
      */
     public function getTests()
     {
-        $allTests = [];
+        foreach ($this->loadFromPath() as $row) {
+            $request = (new GenericRequestFactory())->createRequestForUserAgent($row['ua']);
 
-        foreach ($this->loadFromPath() as $dataFile) {
-            foreach ($dataFile as $row) {
-                if (!array_key_exists('ua', $row)) {
-                    continue;
-                }
-
-                if (array_key_exists($row['ua'], $allTests)) {
-                    continue;
-                }
-
-                $request = (new GenericRequestFactory())->createRequestForUserAgent($row['ua']);
-
-                try {
-                    $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $browserType = null;
-                }
-
-                try {
-                    $browserMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Browser_Maker']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $browserMaker = null;
-                }
-
-                $browser = new Browser(
-                    $row['properties']['Browser'],
-                    $browserMaker,
-                    (new BrowserVersionMapper())->mapBrowserVersion($row['properties']['Version'], $row['properties']['Browser']),
-                    $browserType,
-                    $row['properties']['Browser_Bits'],
-                    false,
-                    false,
-                    $row['properties']['Browser_Modus']
-                );
-
-                try {
-                    $deviceMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Device_Maker']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $deviceMaker = null;
-                }
-
-                try {
-                    $deviceBrand = (new CompanyLoader($this->cache))->loadByBrandName($row['properties']['Device_Brand_Name']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $deviceBrand = null;
-                }
-
-                try {
-                    $deviceType = (new DeviceTypeMapper())->mapDeviceType($this->cache, $row['properties']['Device_Type']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $deviceType = null;
-                }
-
-                $device = new Device(
-                    $row['properties']['Device_Code_Name'],
-                    $row['properties']['Device_Name'],
-                    $deviceMaker,
-                    $deviceBrand,
-                    $deviceType,
-                    $row['properties']['Device_Pointing_Method']
-                );
-
-                try {
-                    $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $platformMaker = null;
-                }
-
-                $platform = new Os(
-                    $row['properties']['Platform'],
-                    null,
-                    $platformMaker
-                );
-
-                try {
-                    $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
-                    $engineMaker = null;
-                }
-
-                $engine = new Engine(
-                    $row['properties']['RenderingEngine_Name'],
-                    $engineMaker,
-                    (new EngineVersionMapper())->mapEngineVersion($row['properties']['RenderingEngine_Version'])
-                );
-
-                yield $row['ua'] => new Result($request, $device, $platform, $browser, $engine);
-                $allTests[$row['ua']] = 1;
+            try {
+                $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $browserType = null;
             }
+
+            try {
+                $browserMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Browser_Maker']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $browserMaker = null;
+            }
+
+            $browser = new Browser(
+                $row['properties']['Browser'],
+                $browserMaker,
+                (new BrowserVersionMapper())->mapBrowserVersion($row['properties']['Version'], $row['properties']['Browser']),
+                $browserType,
+                $row['properties']['Browser_Bits'],
+                false,
+                false,
+                $row['properties']['Browser_Modus']
+            );
+
+            try {
+                $deviceMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Device_Maker']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $deviceMaker = null;
+            }
+
+            try {
+                $deviceBrand = (new CompanyLoader($this->cache))->loadByBrandName($row['properties']['Device_Brand_Name']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $deviceBrand = null;
+            }
+
+            try {
+                $deviceType = (new DeviceTypeMapper())->mapDeviceType($this->cache, $row['properties']['Device_Type']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $deviceType = null;
+            }
+
+            $device = new Device(
+                $row['properties']['Device_Code_Name'],
+                $row['properties']['Device_Name'],
+                $deviceMaker,
+                $deviceBrand,
+                $deviceType,
+                $row['properties']['Device_Pointing_Method']
+            );
+
+            try {
+                $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $platformMaker = null;
+            }
+
+            $platform = new Os(
+                $row['properties']['Platform'],
+                null,
+                $platformMaker
+            );
+
+            try {
+                $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
+            } catch (NotFoundException $e) {
+                $this->logger->critical($e);
+                $engineMaker = null;
+            }
+
+            $engine = new Engine(
+                $row['properties']['RenderingEngine_Name'],
+                $engineMaker,
+                (new EngineVersionMapper())->mapEngineVersion($row['properties']['RenderingEngine_Version'])
+            );
+
+            yield $row['ua'] => new Result($request, $device, $platform, $browser, $engine);
         }
     }
 
     /**
-     * @return array
+     * @return array[]
      */
     private function loadFromPath()
     {
@@ -213,26 +177,44 @@ class BrowscapSource implements SourceInterface
             return;
         }
 
-        $this->output->writeln('    reading path ' . $path);
+        $this->logger->info('    reading path ' . $path);
 
-        $iterator = new \RecursiveDirectoryIterator($path);
+        $allTests = [];
+        $finder   = new Finder();
+        $finder->files();
+        $finder->name('*.php');
+        $finder->ignoreDotFiles(true);
+        $finder->ignoreVCS(true);
+        $finder->sortByName();
+        $finder->ignoreUnreadableDirs();
+        $finder->in($path);
 
-        foreach (new \RecursiveIteratorIterator($iterator) as $file) {
+        foreach ($finder as $file) {
             /** @var $file \SplFileInfo */
             if (!$file->isFile()) {
                 continue;
             }
 
+            if ('php' !== $file->getExtension()) {
+                continue;
+            }
+
             $filepath = $file->getPathname();
 
-            $this->output->writeln('    reading file ' . str_pad($filepath, 100, ' ', STR_PAD_RIGHT), false);
-            switch ($file->getExtension()) {
-                case 'php':
-                    yield include $filepath;
-                    break;
-                default:
-                    // do nothing here
-                    break;
+            $this->logger->info('    reading file ' . str_pad($filepath, 100, ' ', STR_PAD_RIGHT));
+            $dataFile = include $filepath;
+
+            foreach ($dataFile as $row) {
+                if (!array_key_exists('ua', $row)) {
+                    continue;
+                }
+
+                if (array_key_exists($row['ua'], $allTests)) {
+                    continue;
+                }
+
+                yield $row;
+                $allTests[$row['ua']] = 1;
             }
         }
     }
