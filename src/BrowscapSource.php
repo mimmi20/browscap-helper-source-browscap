@@ -68,7 +68,7 @@ class BrowscapSource implements SourceInterface
                 return;
             }
 
-            yield $row['ua'];
+            yield trim($row['ua']);
             ++$counter;
         }
     }
@@ -79,7 +79,8 @@ class BrowscapSource implements SourceInterface
     public function getTests()
     {
         foreach ($this->loadFromPath() as $row) {
-            $request = (new GenericRequestFactory())->createRequestForUserAgent($row['ua']);
+            $agent   = trim($row['ua']);
+            $request = (new GenericRequestFactory())->createRequestForUserAgent($agent);
 
             try {
                 $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
@@ -162,7 +163,7 @@ class BrowscapSource implements SourceInterface
                 (new EngineVersionMapper())->mapEngineVersion($row['properties']['RenderingEngine_Version'])
             );
 
-            yield $row['ua'] => new Result($request, $device, $platform, $browser, $engine);
+            yield $agent => new Result($request, $device, $platform, $browser, $engine);
         }
     }
 
@@ -209,12 +210,14 @@ class BrowscapSource implements SourceInterface
                     continue;
                 }
 
-                if (array_key_exists($row['ua'], $allTests)) {
+                $agent = trim($row['ua']);
+
+                if (array_key_exists($agent, $allTests)) {
                     continue;
                 }
 
                 yield $row;
-                $allTests[$row['ua']] = 1;
+                $allTests[$agent] = 1;
             }
         }
     }
