@@ -191,7 +191,7 @@ class BrowscapSource implements SourceInterface
         $finder->in($path);
 
         foreach ($finder as $file) {
-            /** @var $file \SplFileInfo */
+            /** @var \Symfony\Component\Finder\SplFileInfo $file */
             if (!$file->isFile()) {
                 continue;
             }
