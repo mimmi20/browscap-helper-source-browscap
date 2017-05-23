@@ -80,7 +80,7 @@ class BrowscapSource implements SourceInterface
     {
         foreach ($this->loadFromPath() as $row) {
             $agent   = trim($row['ua']);
-            $request = (new GenericRequestFactory())->createRequestForUserAgent($agent);
+            $request = (new GenericRequestFactory())->createRequestFromString($agent);
 
             try {
                 $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
@@ -102,8 +102,6 @@ class BrowscapSource implements SourceInterface
                 (new BrowserVersionMapper())->mapBrowserVersion($row['properties']['Version'], $row['properties']['Browser']),
                 $browserType,
                 $row['properties']['Browser_Bits'],
-                false,
-                false,
                 $row['properties']['Browser_Modus']
             );
 
