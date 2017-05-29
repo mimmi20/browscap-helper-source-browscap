@@ -82,18 +82,42 @@ class BrowscapSource implements SourceInterface
             $agent   = trim($row['ua']);
             $request = (new GenericRequestFactory())->createRequestFromString($agent);
 
-            try {
-                $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Browser_Type', $row['properties'])) {
+                try {
+                    $browserType = (new BrowserTypeMapper())->mapBrowserType($this->cache, $row['properties']['Browser_Type']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $browserType = null;
+                }
+            } else {
+                $this->logger->error('The browser type is missing for UA "' . $agent . '"');
                 $browserType = null;
             }
 
-            try {
-                $browserMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Browser_Maker']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Browser_Maker', $row['properties'])) {
+                try {
+                    $browserMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Browser_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $browserMaker = null;
+                }
+            } else {
+                $this->logger->error('The browser maker is missing for UA "' . $agent . '"');
                 $browserMaker = null;
+            }
+
+            if (array_key_exists('Browser_Bits', $row['properties'])) {
+                $bits = $row['properties']['Browser_Bits'];
+            } else {
+                $this->logger->error('The browser bits are missing for UA "' . $agent . '"');
+                $bits = null;
+            }
+
+            if (array_key_exists('Browser_Modus', $row['properties'])) {
+                $modus = $row['properties']['Browser_Modus'];
+            } else {
+                $this->logger->error('The browser modus is missing for UA "' . $agent . '"');
+                $modus = null;
             }
 
             $browser = new Browser(
@@ -101,44 +125,85 @@ class BrowscapSource implements SourceInterface
                 $browserMaker,
                 (new BrowserVersionMapper())->mapBrowserVersion($row['properties']['Version'], $row['properties']['Browser']),
                 $browserType,
-                $row['properties']['Browser_Bits'],
-                $row['properties']['Browser_Modus']
+                $bits,
+                $modus
             );
 
-            try {
-                $deviceMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Device_Maker']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Device_Maker', $row['properties'])) {
+                try {
+                    $deviceMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Device_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $deviceMaker = null;
+                }
+            } else {
+                $this->logger->error('The device maker is missing for UA "' . $agent . '"');
                 $deviceMaker = null;
             }
 
-            try {
-                $deviceBrand = (new CompanyLoader($this->cache))->loadByBrandName($row['properties']['Device_Brand_Name']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Device_Brand_Name', $row['properties'])) {
+                try {
+                    $deviceBrand = (new CompanyLoader($this->cache))->loadByBrandName($row['properties']['Device_Brand_Name']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $deviceBrand = null;
+                }
+            } else {
+                $this->logger->error('The device brand name is missing for UA "' . $agent . '"');
                 $deviceBrand = null;
             }
 
-            try {
-                $deviceType = (new DeviceTypeMapper())->mapDeviceType($this->cache, $row['properties']['Device_Type']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Device_Type', $row['properties'])) {
+                try {
+                    $deviceType = (new DeviceTypeMapper())->mapDeviceType($this->cache, $row['properties']['Device_Type']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $deviceType = null;
+                }
+            } else {
+                $this->logger->error('The device type is missing for UA "' . $agent . '"');
                 $deviceType = null;
             }
 
+            if (array_key_exists('Device_Code_Name', $row['properties'])) {
+                $codeName = $row['properties']['Device_Code_Name'];
+            } else {
+                $this->logger->error('The device code name is missing for UA "' . $agent . '"');
+                $codeName = null;
+            }
+
+            if (array_key_exists('Device_Name', $row['properties'])) {
+                $deviceName = $row['properties']['Device_Name'];
+            } else {
+                $this->logger->error('The device name is missing for UA "' . $agent . '"');
+                $deviceName = null;
+            }
+
+            if (array_key_exists('Device_Pointing_Method', $row['properties'])) {
+                $pointing = $row['properties']['Device_Pointing_Method'];
+            } else {
+                $this->logger->error('The device pointing method is missing for UA "' . $agent . '"');
+                $pointing = null;
+            }
+
             $device = new Device(
-                $row['properties']['Device_Code_Name'],
-                $row['properties']['Device_Name'],
+                $codeName,
+                $deviceName,
                 $deviceMaker,
                 $deviceBrand,
                 $deviceType,
-                $row['properties']['Device_Pointing_Method']
+                $pointing
             );
 
-            try {
-                $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Platform_Maker', $row['properties'])) {
+                try {
+                    $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $platformMaker = null;
+                }
+            } else {
+                $this->logger->error('The platform maker is missing for UA "' . $agent . '"');
                 $platformMaker = null;
             }
 
@@ -148,10 +213,15 @@ class BrowscapSource implements SourceInterface
                 $platformMaker
             );
 
-            try {
-                $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
-            } catch (NotFoundException $e) {
-                $this->logger->critical($e);
+            if (array_key_exists('Platform_Maker', $row['properties'])) {
+                try {
+                    $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
+                } catch (NotFoundException $e) {
+                    $this->logger->critical($e);
+                    $engineMaker = null;
+                }
+            } else {
+                $this->logger->error('The engine maker is missing for UA "' . $agent . '"');
                 $engineMaker = null;
             }
 
