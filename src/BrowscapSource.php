@@ -107,17 +107,17 @@ class BrowscapSource implements SourceInterface
             }
 
             if (array_key_exists('Browser_Bits', $row['properties'])) {
-                $bits = (int) $row['properties']['Browser_Bits'];
+                $bits = $row['properties']['Browser_Bits'];
             } else {
                 $this->logger->error('The browser bits are missing for UA "' . $agent . '"');
-                $bits = 0;
+                $bits = null;
             }
 
             if (array_key_exists('Browser_Modus', $row['properties'])) {
-                $modus = (string) $row['properties']['Browser_Modus'];
+                $modus = $row['properties']['Browser_Modus'];
             } else {
                 $this->logger->error('The browser modus is missing for UA "' . $agent . '"');
-                $modus = '';
+                $modus = null;
             }
 
             $browser = new Browser(
