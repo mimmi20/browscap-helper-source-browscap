@@ -244,7 +244,7 @@ class BrowscapSource implements SourceInterface
                     $engineVersion
                 );
             } else {
-                $this->logger->error('The platform name is missing for UA "' . $agent . '"');
+                $this->logger->error('The engine name is missing for UA "' . $agent . '"');
                 $engine = null;
             }
 
