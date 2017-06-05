@@ -213,23 +213,40 @@ class BrowscapSource implements SourceInterface
                 $platformMaker
             );
 
-            if (array_key_exists('Platform_Maker', $row['properties'])) {
-                try {
-                    $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
+            if (array_key_exists('RenderingEngine_Name', $row['properties'])) {
+                if (array_key_exists('Platform_Maker', $row['properties'])) {
+                    try {
+                        $engineMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['RenderingEngine_Maker']);
+                    } catch (NotFoundException $e) {
+                        $this->logger->critical($e);
+                        $engineMaker = null;
+                    }
+                } else {
+                    $this->logger->error('The engine maker is missing for UA "' . $agent . '"');
                     $engineMaker = null;
                 }
-            } else {
-                $this->logger->error('The engine maker is missing for UA "' . $agent . '"');
-                $engineMaker = null;
-            }
 
-            $engine = new Engine(
-                $row['properties']['RenderingEngine_Name'],
-                $engineMaker,
-                (new EngineVersionMapper())->mapEngineVersion($row['properties']['RenderingEngine_Version'])
-            );
+                if (array_key_exists('RenderingEngine_Version', $row['properties'])) {
+                    try {
+                        $engineVersion = (new EngineVersionMapper())->mapEngineVersion($row['properties']['RenderingEngine_Version']);
+                    } catch (NotFoundException $e) {
+                        $this->logger->critical($e);
+                        $engineVersion = null;
+                    }
+                } else {
+                    $this->logger->error('The engine version is missing for UA "' . $agent . '"');
+                    $engineVersion = null;
+                }
+
+                $engine = new Engine(
+                    $row['properties']['RenderingEngine_Name'],
+                    $engineMaker,
+                    $engineVersion
+                );
+            } else {
+                $this->logger->error('The engine name is missing for UA "' . $agent . '"');
+                $engine = null;
+            }
 
             yield $agent => new Result($request, $device, $platform, $browser, $engine);
         }
