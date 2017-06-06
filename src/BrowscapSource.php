@@ -90,7 +90,7 @@ class BrowscapSource implements SourceInterface
                     $browserType = null;
                 }
             } else {
-                $this->logger->error('The browser type is missing for UA "' . $agent . '"');
+                $this->logger->warning('The browser type is missing for UA "' . $agent . '"');
                 $browserType = null;
             }
 
@@ -102,21 +102,21 @@ class BrowscapSource implements SourceInterface
                     $browserMaker = null;
                 }
             } else {
-                $this->logger->error('The browser maker is missing for UA "' . $agent . '"');
+                $this->logger->warning('The browser maker is missing for UA "' . $agent . '"');
                 $browserMaker = null;
             }
 
             if (array_key_exists('Browser_Bits', $row['properties'])) {
                 $bits = $row['properties']['Browser_Bits'];
             } else {
-                $this->logger->error('The browser bits are missing for UA "' . $agent . '"');
+                $this->logger->warning('The browser bits are missing for UA "' . $agent . '"');
                 $bits = null;
             }
 
             if (array_key_exists('Browser_Modus', $row['properties'])) {
                 $modus = $row['properties']['Browser_Modus'];
             } else {
-                $this->logger->error('The browser modus is missing for UA "' . $agent . '"');
+                $this->logger->warning('The browser modus is missing for UA "' . $agent . '"');
                 $modus = null;
             }
 
@@ -137,7 +137,7 @@ class BrowscapSource implements SourceInterface
                     $deviceMaker = null;
                 }
             } else {
-                $this->logger->error('The device maker is missing for UA "' . $agent . '"');
+                $this->logger->warning('The device maker is missing for UA "' . $agent . '"');
                 $deviceMaker = null;
             }
 
@@ -149,7 +149,7 @@ class BrowscapSource implements SourceInterface
                     $deviceBrand = null;
                 }
             } else {
-                $this->logger->error('The device brand name is missing for UA "' . $agent . '"');
+                $this->logger->warning('The device brand name is missing for UA "' . $agent . '"');
                 $deviceBrand = null;
             }
 
@@ -161,28 +161,28 @@ class BrowscapSource implements SourceInterface
                     $deviceType = null;
                 }
             } else {
-                $this->logger->error('The device type is missing for UA "' . $agent . '"');
+                $this->logger->warning('The device type is missing for UA "' . $agent . '"');
                 $deviceType = null;
             }
 
             if (array_key_exists('Device_Code_Name', $row['properties'])) {
                 $codeName = $row['properties']['Device_Code_Name'];
             } else {
-                $this->logger->error('The device code name is missing for UA "' . $agent . '"');
+                $this->logger->warning('The device code name is missing for UA "' . $agent . '"');
                 $codeName = null;
             }
 
             if (array_key_exists('Device_Name', $row['properties'])) {
                 $deviceName = $row['properties']['Device_Name'];
             } else {
-                $this->logger->error('The device name is missing for UA "' . $agent . '"');
+                $this->logger->warning('The device name is missing for UA "' . $agent . '"');
                 $deviceName = null;
             }
 
             if (array_key_exists('Device_Pointing_Method', $row['properties'])) {
                 $pointing = $row['properties']['Device_Pointing_Method'];
             } else {
-                $this->logger->error('The device pointing method is missing for UA "' . $agent . '"');
+                $this->logger->warning('The device pointing method is missing for UA "' . $agent . '"');
                 $pointing = null;
             }
 
@@ -195,23 +195,28 @@ class BrowscapSource implements SourceInterface
                 $pointing
             );
 
-            if (array_key_exists('Platform_Maker', $row['properties'])) {
-                try {
-                    $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
-                } catch (NotFoundException $e) {
-                    $this->logger->critical($e);
+            if (array_key_exists('Platform', $row['properties'])) {
+                if (array_key_exists('Platform_Maker', $row['properties'])) {
+                    try {
+                        $platformMaker = (new CompanyLoader($this->cache))->loadByName($row['properties']['Platform_Maker']);
+                    } catch (NotFoundException $e) {
+                        $this->logger->critical($e);
+                        $platformMaker = null;
+                    }
+                } else {
+                    $this->logger->warning('The platform maker is missing for UA "' . $agent . '"');
                     $platformMaker = null;
                 }
-            } else {
-                $this->logger->error('The platform maker is missing for UA "' . $agent . '"');
-                $platformMaker = null;
-            }
 
-            $platform = new Os(
-                $row['properties']['Platform'],
-                null,
-                $platformMaker
-            );
+                $platform = new Os(
+                    $row['properties']['Platform'],
+                    null,
+                    $platformMaker
+                );
+            } else {
+                $this->logger->warning('The platform name is missing for UA "' . $agent . '"');
+                $platform = null;
+            }
 
             if (array_key_exists('RenderingEngine_Name', $row['properties'])) {
                 if (array_key_exists('Platform_Maker', $row['properties'])) {
@@ -222,7 +227,7 @@ class BrowscapSource implements SourceInterface
                         $engineMaker = null;
                     }
                 } else {
-                    $this->logger->error('The engine maker is missing for UA "' . $agent . '"');
+                    $this->logger->warning('The engine maker is missing for UA "' . $agent . '"');
                     $engineMaker = null;
                 }
 
@@ -234,7 +239,7 @@ class BrowscapSource implements SourceInterface
                         $engineVersion = null;
                     }
                 } else {
-                    $this->logger->error('The engine version is missing for UA "' . $agent . '"');
+                    $this->logger->warning('The engine version is missing for UA "' . $agent . '"');
                     $engineVersion = null;
                 }
 
@@ -244,7 +249,7 @@ class BrowscapSource implements SourceInterface
                     $engineVersion
                 );
             } else {
-                $this->logger->error('The engine name is missing for UA "' . $agent . '"');
+                $this->logger->warning('The engine name is missing for UA "' . $agent . '"');
                 $engine = null;
             }
 
